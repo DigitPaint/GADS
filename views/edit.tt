@@ -771,6 +771,9 @@
                         <span hidden class="form-control-search__clear">&times;</span>
                     </li>
                 [% END %]
+                <li class="spinner" hidden>
+                    <i class="fa fa-spinner fa-spin" style="font-size:24px"></i>
+                </li>
                 <li class="answer answer--blank">
                     <span class="control">
                         [% checked = !editvalue.id %]

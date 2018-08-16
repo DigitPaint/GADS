@@ -35,9 +35,30 @@ var SelectWidget = function (multi) {
 
     var $selectWidget = this;
     var $widget = this.find('.form-control');
-
     if ($widget.hasClass("hasSelectWidget")) {
         return;
+    }
+
+    var isSingle = this.hasClass('single');
+    var $container = $('main');
+    var $trigger = $widget.find('[aria-expanded]');
+    var $current = this.find('.current');
+    var $available = this.find('.available');
+    var $availableItems = this.find('.available .answer input');
+    var $target  = this.find('#' + $trigger.attr('aria-controls'));
+    var $currentItems = $current.children();
+    var $answers = this.find('.answer');
+    var $search = this.find('.form-control-search');
+    var $clearSearch = this.find('.form-control-search__clear');
+    var lastFetchParams = null;
+
+
+    var connect = function() {
+        if (multi) {
+            $currentItems.each(connectMulti(updateState));
+        } else {
+            connectSingle();
+        }
     }
 
     var connectMulti = function (update) {
@@ -57,16 +78,27 @@ var SelectWidget = function (multi) {
         };
     };
 
-    var connectSingle = function (update) {
-        return function () {
-            var $item = $(this);
+    var connectSingle = function () {
+        $currentItems.each(function(_, item) {
+            var $item = $(item);
             var itemId = $item.data('list-item');
             var $associated = $('#' + itemId);
             $associated.on('change', function (e) {
                 e.stopPropagation();
-                update($item);
+                $currentItems.each(function () {
+                    $(this).attr('hidden', '');
+                });
+
+                $current.toggleClass('empty', false);
+                $item.removeAttr('hidden');
+
+                $widget.trigger('change');
             });
-        };
+        });
+
+        $availableItems.on('click', function () {
+            onTriggerClick($widget, $trigger, $target)();
+        });
     };
 
     var fetchOptions = function() {
@@ -77,50 +109,49 @@ var SelectWidget = function (multi) {
             console.error("Invalid data-filter-fields found. It should be a proper JSON array of fields.");
         }
 
-        // Collect values of linked fields
-        var data = {};
-        $.each(filterFields, function(_, field) {
-            var values = [];
-            var multipleValues = false;
+        var currentValue = parseInt($available.find("input:checked").val());
+        console.warn("currentValue", currentValue);
 
+        // Collect values of linked fields
+        var values = [];
+        $.each(filterFields, function(_, field) {
             $("input[name=" + field + "]").each(function(_, input) {
                 var $input = $(input);
                 switch($input.attr("type")) {
                     case "text":
-                        values.push($input.val());
+                        values.push(field + "=" + $input.val());
                         break;
                     case "radio":
                         if (input.checked) {
-                            values.push($input.val());
+                            values.push(field + "=" + $input.val());
                         }
                         break;
                     case "checkbox":
                         if (input.checked) {
-                            values.push($input.val());
+                            values.push(field + "=" + $input.val());
                         }
-                        multipleValues = true;
                         break;
                };
             });
-
-            if (multipleValues) {
-                data[field] = values;
-            } else {
-                data[field] = values[0];
-            }
         });
 
-        $.getJSON(filterEndpoint, data, function(data) {
-            if (data.status === "ok") {
-                console.warn("OK", data);
-                $current.empty();
-                $available.empty();
+        // Bail out if the options haven't changed
+        var fetchParams = values.join("&");
+        if (lastFetchParams === fetchParams) {
+            return;
+        }
 
+        $available.find(".answer").remove();
+        $available.find(".spinner").removeAttr('hidden');
+
+        $.getJSON(filterEndpoint + "?" + fetchParams, function(data) {
+            $current.empty();
+
+            if (data.error === 0) {
                 $.each(data.records, function(recordIndex, record) {
-                    var checked = recordIndex === 0; // TODO: Actually determine checked state
+                    var checked = record.id === currentValue;
+                    console.warn("vs", record.id, currentValue);
                     var valueId = field + "_" + record.id;
-
-                    // TODO: Consider using hyperscript
 
                     // Setup 'current' list
                     var currentEl = document.createElement("li");
@@ -160,20 +191,27 @@ var SelectWidget = function (multi) {
 
                     $available.append(answerLiEl);
 
-                    // Setup search field
-                    // TODO
-
-                    // TODO: Initialize event handlers
                 });
-            } else if (data.status === "error") {
-                console.warn("ERROR", data.message);
+
+                $currentItems = $current.children();
+                $available = $selectWidget.find('.available');
+                $availableItems = $selectWidget.find('.available .answer input');
+                connect();
+
+                lastFetchParams = fetchParams;
+            } else {
+                var errorMessage = data.error === 1 ? data.message : "Oops! Something went wrong.";
+                var errorLi = $('<li class="answer answer--blank alert alert-danger"><span class="control"><label>' + errorMessage + '</label></span></li>');
+                $available.append(errorLi);
             }
         })
         .fail(function() {
-            console.error("Error fetching options!");
+            var errorMessage = data.error === 1 ? data.message : "Oops! Something went wrong.";
+            var errorLi = $('<li class="answer answer--blank alert alert-danger"><span class="control"><label>' + errorMessage + '</label></span></li>');
+            $available.append(errorLi);
         })
         .always(function() {
-            console.warn("TODO: Hide spinner");
+            $available.find(".spinner").attr('hidden', '');
         });
     }
 
@@ -187,7 +225,6 @@ var SelectWidget = function (multi) {
             if (willExpandNext) {
                 if ($selectWidget.data("filter-endpoint") && $selectWidget.data("filter-endpoint").length) {
                     fetchOptions();
-                    console.warn("TODO: clear all options and show spinner");
                 }
 
                 var widgetTop = $widget.offset().top;
@@ -209,19 +246,6 @@ var SelectWidget = function (multi) {
         }
     };
 
-    var isSingle = this.hasClass('single');
-
-    var $container = $('main');
-    var $trigger = $widget.find('[aria-expanded]');
-    var $current = this.find('.current');
-    var $available = this.find('.available');
-    var $availableItems = this.find('.available .answer input');
-    var $target  = this.find('#' + $trigger.attr('aria-controls'));
-    var $currentItems = $current.children();
-    var $answers = this.find('.answer');
-    var $search = this.find('.form-control-search');
-    var $clearSearch = this.find('.form-control-search__clear');
-
     var updateState = function () {
         var $visible = $current.children('[data-list-item]:not([hidden])');
 
@@ -238,25 +262,7 @@ var SelectWidget = function (multi) {
 
     updateState();
 
-    if (multi) {
-        $currentItems.each(connectMulti(updateState));
-    } else {
-        $currentItems.each(connectSingle(function ($connected) {
-            $currentItems.each(function () {
-                $(this).attr('hidden', '');
-            });
-
-            $current.toggleClass('empty', false);
-            $connected.removeAttr('hidden');
-
-            $widget.trigger('change');
-        }));
-    }
-
-    $availableItems.on('click', function () {
-        if (!isSingle) return;
-        onTriggerClick($widget, $trigger, $target)();
-    });
+    connect();
 
     $widget.on('click', onTriggerClick($widget, $trigger, $target));
 
