@@ -700,7 +700,7 @@ sub _build__search_all_fields
                                       $plural => ['value', 'layout']
                                   },
                               ]
-                          } 
+                          }
                         : {
                               'record_single' => [
                                   'record_later',
@@ -1652,6 +1652,8 @@ sub _search_construct
         not_equal        => '!=',
         is_empty         => '=',
         is_not_empty     => '!=',
+        history_equal    => '=',
+        history_contains => '-like',
     );
 
     my %permission = $ignore_perms ? () : (permission => 'read');

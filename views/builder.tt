@@ -69,22 +69,30 @@ $('#builder[% builder_id %]').queryBuilder({
                     }
                 [% END %]
             },
-        [% END %] 
+        [% END %]
         ],
         operators: [
             {type: 'equal',            accept_values: true,  apply_to: ['string', 'number', 'datetime']},
+            {type: 'history_equal',    accept_values: true,  apply_to: ['string', 'number', 'datetime']},
             {type: 'not_equal',        accept_values: true,  apply_to: ['string', 'number', 'datetime']},
             {type: 'less',             accept_values: true,  apply_to: ['string', 'number', 'datetime']},
             {type: 'less_or_equal',    accept_values: true,  apply_to: ['string', 'number', 'datetime']},
             {type: 'greater',          accept_values: true,  apply_to: ['string', 'number', 'datetime']},
             {type: 'greater_or_equal', accept_values: true,  apply_to: ['string', 'number', 'datetime']},
             {type: 'contains',         accept_values: true,  apply_to: ['datetime', 'string']},
+            {type: 'history_contains', accept_values: true,  apply_to: ['datetime', 'string']},
             {type: 'not_contains',     accept_values: true,  apply_to: ['datetime', 'string']},
             {type: 'begins_with',      accept_values: true,  apply_to: ['string']},
             {type: 'not_begins_with',  accept_values: true,  apply_to: ['string']},
             {type: 'is_empty',         accept_values: false, apply_to: ['string', 'number', 'datetime']},
             {type: 'is_not_empty',     accept_values: false, apply_to: ['string', 'number', 'datetime']}
-        ]
+        ],
+        lang: {
+            "operators": {
+                "history_equal": "equal (include history)",
+                "history_contains": "contains (include history)"
+            }
+        }
 
 });
 
